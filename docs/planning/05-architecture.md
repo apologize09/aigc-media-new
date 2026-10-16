@@ -68,7 +68,7 @@ Worker 不对外监听业务端口。它只从队列取任务并调用 `src/serv
 docs/planning/          本规划
 prisma/ 或 drizzle/     迁移与表定义（实现时二选一）
 src/app/                路由、页面、路由处理函数
-src/components/         后台界面与提案模块的可视化编辑组件
+src/components/         后台界面。提案可视化编辑见第 10 篇，装饰不进入渲染函数
 src/proposal/           模块类型、校验、HTML 渲染（web 与 worker 共用）
 src/server/auth/        会话、口令、权限检查
 src/server/projects/    项目、客户、成员
