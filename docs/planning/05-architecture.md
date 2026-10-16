@@ -15,8 +15,8 @@ Web 应用（页面 + HTTP API）
     ├── Redis             队列
     └── Worker            分析、检索、生成、渲染
             │
-            ├── 模型适配器 ──▸ 一家对话模型 API（Q2）
-            └── 搜索适配器 ──▸ 一家搜索 API（Q3）
+            ├── 模型适配器 ──▸ 一家对话模型 API（允许发送素材；供应商未指定）
+            └── 搜索适配器 ──▸ 一家搜索 API（供应商未指定；选用后转存）
 
 浏览器（客户）
     │  HTTPS，仅分享令牌
@@ -54,7 +54,7 @@ Worker 不对外监听业务端口。它只从队列取任务并调用 `src/serv
 | `quote` | 无独立金额；渲染时读报价行 | 已确认内容，编辑方式是 R-A7 |
 | `schedule` | 阶段名称、说明、起止日期（可空） | 已确认 |
 
-案例条目字段：展示标题、编辑说明、媒体类型（图片 / 视频 / 创意链接）、来源名称、来源 URL、授权状态、引用的素材或候选 ID、展示方式（外链 / 客户素材）。授权状态枚举：`client_provided`、`unknown`、`licensed`、`link_only`。不增加「默认为已授权」。
+案例条目字段：展示标题、编辑说明、媒体类型（图片 / 视频 / 创意链接）、来源名称、来源 URL、授权状态、引用的素材 ID。展示使用已转存的副本；转存未成功时该条目不能进入已发布快照。授权状态枚举：`client_provided`、`unknown`、`licensed`。不增加「默认为已授权」。网络案例在转存前的授权状态用 `unknown`。
 
 分镜条目字段：顺序、画面描述、文案、时长说明（文本，不换算工时）、可选参考图。时长不做排期计算。
 
@@ -109,7 +109,7 @@ users 1 ── * audit_logs
 
 一个项目一个草稿（R-A11）。一个项目多份快照。交付和审核只指向快照。
 
-金额列使用 `numeric(14,2)`。币种列保留，但默认值等 Q5，不在迁移里写死汇率逻辑。
+金额列使用 `numeric(14,2)`。币种列可空。本期没有默认币种，也没有汇率。
 
 ### users
 
@@ -120,7 +120,7 @@ users 1 ── * audit_logs
 | name | 显示名 |
 | password_hash | 口令哈希，不可逆 |
 | status | `active` / `disabled` |
-| finance_access | 能否查看成本与利润。合理假设，等 Q4 |
+| finance_access | 能否查看和编辑成本、报价与利润区。已确认 |
 | created_at / updated_at | |
 
 职责用 `user_roles`：`admin`、`editor`、`reviewer`。一个人可多条。这组枚举是假设。
@@ -142,7 +142,7 @@ users 1 ── * audit_logs
 
 ### project_members
 
-project_id、user_id、created_at。是否再加项目内职责，等 Q4。在确认「按项目隔离」之前，这张表只表达参与关系。
+project_id、user_id、created_at。参与关系就是隔离边界：用户不是该项目成员、也不是管理员时，列表和详情都不可见。不再按项目拆一套不同的角色。
 
 ### assets
 
@@ -160,7 +160,9 @@ project_id、user_id、created_at。是否再加项目内职责，等 Q4。在�
 
 ### ai_jobs
 
-id、project_id、type（`analyze` / `search_plan` / `draft_proposal` / `regenerate_block` / `suggest_tasks`）、status（`queued` / `running` / `succeeded` / `failed` / `cancelled`）、input、output、error、provider、model、usage（可空 JSON）、created_by、时间戳。
+id、project_id、type（`analyze` / `search_plan` / `draft_proposal` / `regenerate_block` / `transfer_asset`）、status（`queued` / `running` / `succeeded` / `failed` / `cancelled`）、input、output、error、provider、model、usage（可空 JSON）、created_by、时间戳。
+
+没有 `suggest_tasks`。任务以手工为主。`transfer_asset` 在选用网络案例或手工补链后执行转存。
 
 `input` / `output` 只存定位和已校验摘要。客户素材二进制不进该列。是否保存完整提示词等 Q14。
 
@@ -168,7 +170,7 @@ id、project_id、type（`analyze` / `search_plan` / `draft_proposal` / `regener
 
 id、project_id、ai_job_id、version_no、is_current、payload、confirmed_by、confirmed_at、created_at。同一项目最多一条 `is_current`。
 
-`payload` 的建议形状（合理假设，Q6 可增字段，不在未确认时当作客户的需求模板）：
+`payload` 使用下面的最小字段。已确认不按行业模板扩展：
 
 - summary
 - objectives：字符串数组
@@ -201,7 +203,7 @@ id、project_id、version_no、document JSON（发布时的模块副本）、quo
 
 ### cost_sheets / cost_lines / quote_lines
 
-cost_sheets：id、project_id 唯一、currency（可空直到 Q5）、updated_by、updated_at。
+cost_sheets：id、project_id 唯一、currency（可空，本期不填默认值）、updated_by、updated_at。
 
 cost_lines：id、cost_sheet_id、label、quantity、unit（文本，可空）、unit_amount、line_amount、note、position。
 
@@ -209,17 +211,17 @@ quote_lines：id、project_id、label、quantity、unit、unit_amount、line_amo
 
 line_amount 在保存时由数量和单价计算并存储，同时保留单价和数量，避免只剩一个无法复核的总数。若人只填总额、没有单价，则 unit_amount 为空、line_amount 为录入值。两种录入方式都允许，因为报价习惯未确认。
 
-利润不单独建「写死公式」的表。可增加 `profit_formula` 配置：id、expression_key、参数 JSON、enabled。在 Q5 给出算法前，表可以存在但没有 enabled 行。利润接口发现没有 enabled 配置就返回未配置，不返回比率。
+本期不建利润公式表，也不预留一条 enabled 的公式。利润接口对有财务可见的项目成员返回未配置，不返回比率。以后若要计算，另开一次变更，不在本期塞进默认表达式。
 
 ### work_tasks
 
-id、project_id、snapshot_id 可空、title、detail、status（`suggested` / `confirmed` / `cancelled`；进行中和完成等执行跟踪是否需要，见 Q9）、assignee_user_id 可空、start_on、end_on、source（`suggested` / `manual`）、position。
+id、project_id、snapshot_id 可空、title、detail、status（`draft` / `confirmed` / `cancelled`；进行中和完成等执行跟踪是否需要，见 Q9）、assignee_user_id 可空、start_on、end_on、position。
 
-不建任务依赖图。需求没有提到任务网络。若 Q9 要求前置任务，再加表。
+任务全部由人创建。本期没有 `suggested` 来源，也没有按行业生成的接口。不建任务依赖图。若 Q9 要求前置任务或工时，再加字段。
 
 ### reviews / deliveries
 
-reviews：id、snapshot_id、reviewer_id、decision（`approved` / `changes_requested`）、comment、created_at。多级审核未确认，MVP 数据结构先按「一条快照可以有多条结论，以最新一条为准」预留，但不实现多级会签。
+reviews：id、snapshot_id、reviewer_id、decision（`approved` / `changes_requested`）、comment、created_at。单人审核：该快照最新一条结论就是结论。退回后再次送审会新增一条，不覆盖历史。不做会签，也不要求多名审核人都通过。
 
 deliveries：id、snapshot_id、token_hash、expires_at 可空、revoked_at 可空、created_by、created_at。明文令牌只在创建响应里出现一次。
 
@@ -283,7 +285,7 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 | --- | --- | --- |
 | POST | `/api/projects/:id/searches` | body：query、可选 media_type。入队 |
 | GET | `/api/projects/:id/searches` | 历史检索与候选 |
-| POST | `/api/search-hits/:id/select` | 选用 |
+| POST | `/api/search-hits/:id/select` | 选用并入队转存。限制未配置或转存失败时，候选可保持选用，但不产生可放入快照的副本 |
 | POST | `/api/search-hits/:id/dismiss` | 弃用 |
 | POST | `/api/projects/:id/references` | 手工补链 |
 
@@ -309,9 +311,8 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 | --- | --- | --- |
 | GET, PUT | `/api/projects/:id/cost-sheet` | PUT 整体保存行，或拆成行级 POST/PATCH/DELETE。实现时选一种，不两套并存 |
 | GET, PUT | `/api/projects/:id/quote-lines` | 含 `visible_in_proposal` |
-| GET | `/api/projects/:id/profit` | 无公式配置时返回未配置；无财务权限则 403 |
-| POST | `/api/projects/:id/tasks/suggest` | 入队草案，不删除已确认任务 |
-| GET, POST | `/api/projects/:id/tasks` | |
+| GET | `/api/projects/:id/profit` | 本期固定返回未配置；无财务可见或非项目成员则 403 |
+| GET, POST | `/api/projects/:id/tasks` | 手工创建。没有按模板生成的接口 |
 | PATCH | `/api/tasks/:id` | 含确认、取消 |
 
 ### 审核与交付
@@ -328,7 +329,7 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/projects/:id/audit-logs` | 管理员，或 Q4 允许的角色 |
+| GET | `/api/projects/:id/audit-logs` | 仅管理员。管理员可见全部项目的审计 |
 | GET | `/api/health` | 进程存活。不返回依赖密钥 |
 
 ## 5.6 队列任务
@@ -339,8 +340,8 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 | search | 检索 id | search_hits 为 candidate | 检索标失败 |
 | draft_proposal | 项目 id | 仅当草稿为空，或 job 明确允许替换 | 不改现有模块 |
 | regenerate_block | 模块 id | 只写 job output，等确认接口落模块 | 不改模块 |
-| suggest_tasks | 项目 id | 新增 `suggested` 任务 | 不改已确认任务 |
-| publish_render | 快照 id | html_storage_key；失败则删除未完成快照行或标发布失败且不可交付。推荐：事务提交快照前渲染到临时键，成功后再提交记录 | 草稿不变 |
+| transfer_asset | 候选或手工链接 id | 对象存储副本和 asset 行。授权状态保持 unknown，直到人另改 | 不改提案正文。限制未配置时任务失败 |
+| publish_render | 快照 id | html_storage_key；失败则删除未完成快照行或标发布失败且不可交付。推荐：事务提交快照前渲染到临时键，成功后再提交记录 | 草稿不变。引用了转存未成功的案例时拒绝发布 |
 
 同一项目的 `draft_proposal` 与 `regenerate_block` 不要并行写同一草稿。入队时若已有进行中的写草稿任务，拒绝新的写任务。
 
