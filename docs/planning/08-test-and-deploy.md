@@ -101,23 +101,20 @@ Worker（无公网入口）
 | `S3_BUCKET` | web, worker | |
 | `S3_ACCESS_KEY` | web, worker | |
 | `S3_SECRET_KEY` | web, worker | |
-| `AI_PROVIDER` | worker | 适配器名称 |
-| `AI_BASE_URL` | worker | |
-| `AI_API_KEY` | worker | |
-| `AI_MODEL` | worker | |
-| `AI_ALLOW_ASSET_UPLOAD` | worker | 已确认允许出域。供应商已配置且此值为 `true` 时发送素材二进制。未配置供应商时分析任务失败 |
-| `SEARCH_PROVIDER` | worker | 未配置时搜索任务直接失败并给出「未配置」，不伪装成零结果 |
-| `SEARCH_API_KEY` | worker | |
-| `SEARCH_BASE_URL` | worker | |
+| `AI_PROVIDER` | worker | 固定为 `volcengine-ark` |
+| `AI_BASE_URL` | worker | 火山方舟地址，默认文档中的 `https://ark.cn-beijing.volces.com/api/v3`。这是供应商地址，不是业务默认上限 |
+| `AI_API_KEY` | worker | 空则分析和生成失败。不写入仓库 |
+| `AI_MODEL` | worker | 固定为 `doubao-seed-evolving` |
+| `AI_ALLOW_ASSET_UPLOAD` | worker | 已确认允许出域。未设置时按允许发送。设为 `false` 时只发送文本 |
 | `UPLOAD_MAX_BYTES` | web, worker | 未设置时拒绝上传和转存，并提示未配置。不写默认兆字节 |
 | `UPLOAD_ALLOWED_MIME` | web, worker | 未设置时同样拒绝。逗号分隔。具体列表仍待填写 |
 | `SHARE_DEFAULT_TTL_HOURS` | web | 留空。已确认不强制过期；链接靠撤销失效 |
-| `AUTH_SESSION_TTL_HOURS` | web | 等 Q15 |
-| `AUTH_LOCKOUT_THRESHOLD` | web | 等 Q15。未设置则不做锁定，并在设置页显示未配置 |
+| `AUTH_SESSION_TTL_HOURS` | web | 留空。留空时会话不按时间失效。写入数字后才按该数字失效。代码不写死小时数 |
+| `AUTH_LOCKOUT_THRESHOLD` | web | 留空。留空时不做锁定。写入数字后才锁定。代码不写死次数 |
 | `LOG_LEVEL` | web, worker | |
 | `TRUST_PROXY` | web | 仅在确实有反向代理时开启 |
 
-Web 进程不需要 `AI_API_KEY` 与 `SEARCH_API_KEY`。前端打包环境不注入任何密钥。
+Web 进程不需要 `AI_API_KEY`。搜索使用同一次方舟调用，不再单独配置搜索密钥。前端打包环境不注入任何密钥。
 
 ## 8.6 备份
 
@@ -156,8 +153,8 @@ Web 进程不需要 `AI_API_KEY` 与 `SEARCH_API_KEY`。前端打包环境不注
 
 下列情况允许系统启动，但相关功能明确失败，避免用默默的默认值运行：
 
-- 无 `SEARCH_PROVIDER`：搜索失败，原因为未配置。
-- 无 `AI_PROVIDER`：分析与生成失败，原因为未配置。
+- 无 `AI_API_KEY`：分析和带搜索的生成失败，原因为未配置。不改用别的模型。
+- 模型 ID 不是 `doubao-seed-evolving` 的部署视为配置错误，任务不执行。
 - 利润：按 Q5 显示未配置。
 - 无 `UPLOAD_MAX_BYTES` 或无 `UPLOAD_ALLOWED_MIME`：拒绝上传和转存。
 

@@ -15,8 +15,10 @@ Web 应用（页面 + HTTP API）
     ├── Redis             队列
     └── Worker            分析、检索、生成、渲染
             │
-            ├── 模型适配器 ──▸ 一家对话模型 API（允许发送素材；供应商未指定）
-            └── 搜索适配器 ──▸ 一家搜索 API（供应商未指定；选用后转存）
+            └── 火山方舟 Responses API（doubao-seed-evolving）
+                    ├── 分析与模块生成
+                    └── 同一次调用中的 web_search
+                          转存只下载该工具结果里的地址
 
 浏览器（客户）
     │  HTTPS，仅分享令牌
@@ -72,7 +74,7 @@ src/server/auth/        会话、口令、权限检查
 src/server/projects/    项目、客户、成员
 src/server/assets/      上传与对象存储
 src/server/ai/          模型适配器与分析/生成
-src/server/search/      搜索适配器
+src/server/search/      解析方舟 web_search 结果，并执行转存。不接第二家搜索 API
 src/server/pricing/     成本、报价、利润（公式外置）
 src/server/tasks/       执行任务
 src/server/review/      快照、审核、交付
@@ -162,7 +164,7 @@ project_id、user_id、created_at。参与关系就是隔离边界：用户不�
 
 id、project_id、type（`analyze` / `search_plan` / `draft_proposal` / `regenerate_block` / `transfer_asset`）、status（`queued` / `running` / `succeeded` / `failed` / `cancelled`）、input、output、error、provider、model、usage（可空 JSON）、created_by、时间戳。
 
-没有 `suggest_tasks`。任务以手工为主。`transfer_asset` 在选用网络案例或手工补链后执行转存。
+没有 `suggest_tasks`。任务以手工为主。`draft_proposal` 和 `regenerate_block` 调用豆包并打开 `web_search`。`transfer_asset` 只处理这些工具结果里的地址，以及编辑手工补上的链接。
 
 `input` / `output` 只存定位和已校验摘要。客户素材二进制不进该列。是否保存完整提示词等 Q14。
 
@@ -283,11 +285,9 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/api/projects/:id/searches` | body：query、可选 media_type。入队 |
-| GET | `/api/projects/:id/searches` | 历史检索与候选 |
-| POST | `/api/search-hits/:id/select` | 选用并入队转存。限制未配置或转存失败时，候选可保持选用，但不产生可放入快照的副本 |
-| POST | `/api/search-hits/:id/dismiss` | 弃用 |
-| POST | `/api/projects/:id/references` | 手工补链 |
+| GET | `/api/projects/:id/searches` | 某次生成里豆包联网搜索留下的查询和来源 |
+| POST | `/api/search-hits/:id/dismiss` | 从草稿模块移除这条匹配 |
+| POST | `/api/projects/:id/references` | 手工补链并入队转存 |
 
 ### 提案
 
@@ -337,10 +337,10 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 | 任务 | 输入 | 成功时写入 | 失败时 |
 | --- | --- | --- | --- |
 | analyze | 项目 id | 新的 analysis 版本，不自动 confirm | 只更新 ai_job |
-| search | 检索 id | search_hits 为 candidate | 检索标失败 |
+| search | 随 draft_proposal 或 regenerate_block 发生 | 把 web_search 的查询、标题、摘要、来源写入 search_hits，并关联到模型引用的模块 | 搜索工具失败时，生成任务失败，不写入半截模块 |
 | draft_proposal | 项目 id | 仅当草稿为空，或 job 明确允许替换 | 不改现有模块 |
 | regenerate_block | 模块 id | 只写 job output，等确认接口落模块 | 不改模块 |
-| transfer_asset | 候选或手工链接 id | 对象存储副本和 asset 行。授权状态保持 unknown，直到人另改 | 不改提案正文。限制未配置时任务失败 |
+| transfer_asset | 工具结果或手工链接中的地址 | 对象存储副本和 asset 行。授权状态保持 unknown | 地址不在工具结果或手工补链中则拒绝。限制未配置时任务失败。失败的媒体不进入已发布快照；文字来源可以留下 |
 | publish_render | 快照 id | html_storage_key；失败则删除未完成快照行或标发布失败且不可交付。推荐：事务提交快照前渲染到临时键，成功后再提交记录 | 草稿不变。引用了转存未成功的案例时拒绝发布 |
 
 同一项目的 `draft_proposal` 与 `regenerate_block` 不要并行写同一草稿。入队时若已有进行中的写草稿任务，拒绝新的写任务。
