@@ -19,7 +19,7 @@
 | [07-delivery-plan.md](./07-delivery-plan.md) | 开发任务、依赖、交付物、验收标准 |
 | [08-test-and-deploy.md](./08-test-and-deploy.md) | 测试、部署、环境变量、回滚 |
 | [09-open-questions.md](./09-open-questions.md) | 待确认事项汇总（审查时优先看这份） |
-| [10-visual-editor.md](./10-visual-editor.md) | HTML 可视化编辑器基础方案 |
+| [10-visual-editor.md](./10-visual-editor.md) | GrapesJS 可视化编辑、HTML/CSS 模板与 PDF |
 
 ## 标记
 

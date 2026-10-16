@@ -34,13 +34,18 @@ Worker 不对外监听业务端口。它只从队列取任务并调用 `src/serv
 ## 5.2 提案如何变成 HTML
 
 ```text
-模块 JSON  ──渲染函数──▸  HTML 字符串  ──发布时写入──▸  对象存储中的快照文件
-                ▲
-                │
-        预览与发布共用此函数
+HTML/CSS 模板 + 豆包填入的内容
+        │
+        ▼
+GrapesJS 工程 JSON（草稿源数据）
+        │  导出并消毒
+        ▼
+HTML + CSS ──发布──▸ 对象存储中的快照
+        │
+        └─ 同一份快照打印 ──▸ PDF
 ```
 
-渲染函数的输入只有：模块列表、对客可见报价行、客户显示名、版本号、案例的展示信息（标题、说明、来源、可公开的资源地址）。输入类型里没有成本、利润、内部备注、任务。这样分享页即使误调用渲染函数，也没有这些字段可输出。
+导出前，服务端用报价表重写报价节点，用素材表重写图片和视频地址。导出结果里不出现成本、利润、任务和内部备注。分享页读取已发布的 HTML 与 CSS，不在请求里重新跑 GrapesJS。
 
 模块类型（MVP）：
 
@@ -60,26 +65,26 @@ Worker 不对外监听业务端口。它只从队列取任务并调用 `src/serv
 
 分镜条目字段：顺序、画面描述、文案、时长说明（文本，不换算工时）、可选参考图。时长不做排期计算。
 
-正文类字段使用富文本 JSON。渲染时转成 HTML 并做消毒，只允许段落、标题、列表、强调、链接。链接协议只允许 `http` 与 `https`。
+正文在 GrapesJS 里编辑。导出后只保留段落、标题、列表、强调和链接。链接协议只允许 `http` 与 `https`。
 
 ## 5.3 目录结构（实现阶段使用，本轮不创建代码）
 
 ```text
 docs/planning/          本规划
-prisma/ 或 drizzle/     迁移与表定义（实现时二选一）
+prisma/                 Prisma 迁移与表定义
 src/app/                路由、页面、路由处理函数
-src/components/         后台界面。提案可视化编辑见第 10 篇，装饰不进入渲染函数
-src/proposal/           模块类型、校验、HTML 渲染（web 与 worker 共用）
+src/components/         shadcn/ui 后台界面。GrapesJS 只在提案编辑页客户端加载
+src/proposal/templates/ HTML/CSS 提案模板
+src/server/ai/          统一模型适配层。本期仅火山方舟实现，含 web_search 结果提取
 src/server/auth/        会话、口令、权限检查
 src/server/projects/    项目、客户、成员
 src/server/assets/      上传与对象存储
-src/server/ai/          模型适配器与分析/生成
-src/server/search/      解析方舟 web_search 结果，并执行转存。不接第二家搜索 API
+src/server/search/      转存。不接第二家搜索 API
 src/server/pricing/     成本、报价、利润（公式外置）
 src/server/tasks/       执行任务
 src/server/review/      快照、审核、交付
 src/server/audit/       审计写入
-src/worker/             队列消费者入口
+src/worker/             队列消费者。含把快照 HTML/CSS 打成 PDF
 tests/unit/
 tests/integration/
 tests/e2e/
@@ -347,10 +352,10 @@ id、actor_user_id 可空、action、entity_type、entity_id、project_id 可空
 
 ## 5.7 关键序列：发布与交付
 
-1. 编辑调用发布。服务端读取草稿模块与 `visible_in_proposal` 的报价行。
-2. 渲染函数生成 HTML。消毒。
-3. 上传对象存储。
-4. 插入快照行（document、quote_snapshot、html_storage_key、version_no）。
+1. 编辑调用发布。服务端读取 GrapesJS 工程与 `visible_in_proposal` 的报价行。
+2. 用报价表和素材表重写对应节点，导出 HTML 与 CSS，再消毒。
+3. 上传对象存储。需要 PDF 时，worker 用这份 HTML/CSS 打印并另存。
+4. 插入快照行（工程 JSON、quote_snapshot、html_storage_key、css_storage_key、pdf_storage_key 可空、version_no）。
 5. 送审只记录「该快照待审」，不复制第二份 HTML。
 6. 审核通过写 review。
 7. 创建 delivery：生成高熵令牌，库存哈希，响应返回明文一次。

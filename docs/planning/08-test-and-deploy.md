@@ -51,18 +51,21 @@ CI 环境变量使用流水线密钥注入测试用的假值。不把 `.env` 提
 
 ## 8.4 部署方案
 
-目标规模是一个内部系统：一个 Web 进程、一个 worker 进程、PostgreSQL、Redis、对象存储、反向代理。
+目标规模是一个内部系统：Nginx、一个 Web 进程、一个 worker 进程、PostgreSQL、Redis、对象存储。
 
 ```text
-反向代理（TLS）
-    ├─ Web
-    └─ 仅内网：PostgreSQL、Redis
+Nginx（TLS，唯一公网入口）
+    └─ Web
+仅内网：PostgreSQL、Redis
 Worker（无公网入口）
     ├─ PostgreSQL、Redis、对象存储
-    └─ 模型与搜索的出站
+    ├─ 火山方舟出站
+    └─ 无头浏览器，把已发布 HTML/CSS 打成 PDF
 
 对象存储可为同一台机器上的 MinIO，或云厂商的桶。生产建议用云厂商的桶，避免和数据库抢同一块磁盘。最终放在哪等 Q17。
 ```
+
+Nginx 只做 TLS、转发和请求体大小。`client_max_body_size` 不写一个业务默认兆字节。`UPLOAD_MAX_BYTES` 未配置时，把它设为拒绝上传请求的极小值，与「未配置则拒绝上传」一致。配置了该变量之后，Nginx 的上限与它相同。上传类型仍由应用判断。
 
 环境：
 
@@ -112,7 +115,7 @@ Worker（无公网入口）
 | `AUTH_SESSION_TTL_HOURS` | web | 留空。留空时会话不按时间失效。写入数字后才按该数字失效。代码不写死小时数 |
 | `AUTH_LOCKOUT_THRESHOLD` | web | 留空。留空时不做锁定。写入数字后才锁定。代码不写死次数 |
 | `LOG_LEVEL` | web, worker | |
-| `TRUST_PROXY` | web | 仅在确实有反向代理时开启 |
+| `TRUST_PROXY` | web | 置于 Nginx 之后时开启，用于识别原协议和来源 |
 
 Web 进程不需要 `AI_API_KEY`。搜索使用同一次方舟调用，不再单独配置搜索密钥。前端打包环境不注入任何密钥。
 
