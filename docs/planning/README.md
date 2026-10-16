@@ -1,6 +1,6 @@
 # AIGC 传媒提案系统：需求与技术规划
 
-状态：**规则已够写实现，本轮仍只改规划**。2026-10-16 又确认了模型为火山方舟 `doubao-seed-evolving`，搜索由该模型在生成时调用联网搜索自行匹配，上传不设默认上限，会话不写死小时数。仓库里还没有业务代码。
+状态：**规则已够写实现**。2026-10-16 又确认了模型为火山方舟 `doubao-seed-evolving`，搜索由该模型在生成时调用联网搜索自行匹配，上传不设默认上限，会话不写死小时数。仓库里已有未纳入本规划提交的工程骨架（健康检查、空 Prisma、占位登录页），业务功能尚未实现。开源核验与对照见 [11-oss-and-build-plan.md](./11-oss-and-build-plan.md)。本篇及第 11 篇不覆盖这些已有文件。
 
 读者：产品、设计、研发、以及需要拍板待确认事项的负责人。
 
@@ -20,6 +20,7 @@
 | [08-test-and-deploy.md](./08-test-and-deploy.md) | 测试、部署、环境变量、回滚 |
 | [09-open-questions.md](./09-open-questions.md) | 待确认事项汇总（审查时优先看这份） |
 | [10-visual-editor.md](./10-visual-editor.md) | GrapesJS 可视化编辑、HTML/CSS 模板与 PDF |
+| [11-oss-and-build-plan.md](./11-oss-and-build-plan.md) | 开源许可证、兼容性、现状对照、架构、ER、API、任务、复用边界 |
 
 ## 标记
 
