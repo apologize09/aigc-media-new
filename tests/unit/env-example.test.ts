@@ -7,6 +7,9 @@ const REQUIRED_KEYS = [
   "REDIS_URL",
   "AUTH_SECRET",
   "APP_BASE_URL",
+  "SEED_ADMIN_EMAIL",
+  "SEED_ADMIN_NAME",
+  "SEED_ADMIN_PASSWORD",
   "S3_ENDPOINT",
   "S3_REGION",
   "S3_BUCKET",
@@ -30,6 +33,7 @@ const SECRET_KEYS = [
   "DATABASE_URL",
   "REDIS_URL",
   "AUTH_SECRET",
+  "SEED_ADMIN_PASSWORD",
   "S3_ACCESS_KEY",
   "S3_SECRET_KEY",
   "AI_API_KEY",
@@ -65,6 +69,7 @@ describe(".env.example", () => {
     expect(values.get("AI_MODEL")).toBe("doubao-seed-evolving");
     expect(values.get("UPLOAD_MAX_BYTES")).toBe("");
     expect(values.get("AUTH_SESSION_TTL_HOURS")).toBe("");
+    expect(values.get("SEED_ADMIN_EMAIL")).toBe("");
     expect(file).not.toMatch(/sk-[A-Za-z0-9]/);
     expect(file).not.toMatch(/AKIA[0-9A-Z]{16}/);
   });

@@ -6,3 +6,53 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum UserStatus {
+  active
+  disabled
+}
+
+enum RoleName {
+  admin
+  editor
+  reviewer
+}
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  name             String
+  passwordHash     String     @map("password_hash")
+  status           UserStatus @default(active)
+  financeAccess    Boolean    @default(false) @map("finance_access")
+  failedLoginCount Int        @default(0) @map("failed_login_count")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
+  roles            UserRole[]
+  sessions         Session[]
+
+  @@map("users")
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  role      RoleName
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime? @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
