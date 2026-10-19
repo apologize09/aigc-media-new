@@ -12,11 +12,24 @@ export type ArkResponsePayload = {
   error?: { code?: string; message?: string; type?: string };
 };
 
+export type ArkUrlCitation = {
+  type?: string;
+  title?: string;
+  url?: string;
+  snippet?: string;
+  summary?: string;
+  site_name?: string;
+};
+
 export type ArkOutputItem = {
   type?: string;
   role?: string;
   status?: string;
-  content?: Array<{ type?: string; text?: string }>;
+  content?: Array<{
+    type?: string;
+    text?: string;
+    annotations?: ArkUrlCitation[];
+  }>;
   action?: { type?: string; query?: string };
   queries?: string[];
   results?: Array<{
@@ -95,6 +108,13 @@ export async function callArkResponses(input: {
           code,
         );
       }
+      if (/request burst|rate limit|slow down/i.test(message)) {
+        throw new ArkHttpError(
+          response.status,
+          "方舟触发请求频率保护，请稍后重试",
+          code,
+        );
+      }
       throw new ArkHttpError(response.status, message, code);
     }
 
@@ -152,54 +172,118 @@ export type ExtractedSearchHit = {
   mediaType: "image" | "video" | "link";
 };
 
+function splitSearchQueries(raw: string): string[] {
+  return raw
+    .split(/[;；|]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function pushHit(
+  hits: ExtractedSearchHit[],
+  seen: Set<string>,
+  input: {
+    query: string;
+    title?: string;
+    url: string;
+    snippet?: string;
+  },
+) {
+  if (!input.url.startsWith("http://") && !input.url.startsWith("https://")) {
+    return;
+  }
+  if (seen.has(input.url)) {
+    return;
+  }
+  seen.add(input.url);
+  hits.push({
+    query: input.query || "web_search",
+    title: input.title?.trim() || input.url,
+    url: input.url,
+    snippet: input.snippet,
+    mediaType: guessMediaType(input.url),
+  });
+}
+
 /**
- * 只收录工具结果里的真实 URL。模型正文里的地址不在这里提取。
+ * 只收录工具链路中的真实 URL：
+ * 1) web_search_call.results（若有）
+ * 2) message.output_text.annotations 里 type=url_citation 的引用
+ * 模型正文里写出、但不在上述集合中的地址丢弃（由调用方 filter）。
  */
 export function extractWebSearchHits(
   payload: ArkResponsePayload,
 ): { queries: string[]; hits: ExtractedSearchHit[] } {
   const queries: string[] = [];
   const hits: ExtractedSearchHit[] = [];
+  const seen = new Set<string>();
+  let lastQuery = "web_search";
 
   for (const item of payload.output ?? []) {
     const type = item.type ?? "";
+
     if (
-      type !== "web_search_call" &&
-      type !== "web_search" &&
-      !type.includes("web_search")
+      type === "web_search_call" ||
+      type === "web_search" ||
+      type.includes("web_search")
     ) {
+      const query =
+        (typeof item.action?.query === "string" && item.action.query) ||
+        (Array.isArray(item.queries) && typeof item.queries[0] === "string"
+          ? item.queries[0]
+          : "") ||
+        "";
+      if (query) {
+        for (const part of splitSearchQueries(query)) {
+          queries.push(part);
+        }
+        lastQuery = splitSearchQueries(query)[0] ?? query;
+      }
+
+      const results = Array.isArray(item.results) ? item.results : [];
+      for (const row of results) {
+        const url =
+          (typeof row.url === "string" && row.url) ||
+          (typeof row.link === "string" && row.link) ||
+          "";
+        pushHit(hits, seen, {
+          query: lastQuery,
+          title: typeof row.title === "string" ? row.title : undefined,
+          url,
+          snippet:
+            (typeof row.snippet === "string" && row.snippet) ||
+            (typeof row.summary === "string" && row.summary) ||
+            undefined,
+        });
+      }
       continue;
     }
 
-    const query =
-      (typeof item.action?.query === "string" && item.action.query) ||
-      (Array.isArray(item.queries) && typeof item.queries[0] === "string"
-        ? item.queries[0]
-        : "") ||
-      "";
-    if (query) {
-      queries.push(query);
+    if (type !== "message") {
+      continue;
     }
 
-    const results = Array.isArray(item.results) ? item.results : [];
-    for (const row of results) {
-      const url =
-        (typeof row.url === "string" && row.url) ||
-        (typeof row.link === "string" && row.link) ||
-        "";
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        continue;
+    for (const block of item.content ?? []) {
+      for (const annotation of block.annotations ?? []) {
+        if (annotation.type && annotation.type !== "url_citation") {
+          continue;
+        }
+        if (typeof annotation.url !== "string") {
+          continue;
+        }
+        pushHit(hits, seen, {
+          query: lastQuery,
+          title:
+            typeof annotation.title === "string"
+              ? annotation.title
+              : undefined,
+          url: annotation.url,
+          snippet:
+            (typeof annotation.snippet === "string" && annotation.snippet) ||
+            (typeof annotation.summary === "string" && annotation.summary) ||
+            undefined,
+        });
       }
-      hits.push({
-        query: query || "web_search",
-        title: typeof row.title === "string" ? row.title : url,
-        url,
-        snippet:
-          (typeof row.snippet === "string" && row.snippet) ||
-          (typeof row.summary === "string" && row.summary) ||
-          undefined,
-        mediaType: guessMediaType(url),
-      });
     }
   }
 

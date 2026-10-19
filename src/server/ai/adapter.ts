@@ -216,6 +216,8 @@ export class VolcengineArkAdapter implements ProposalModelAdapter {
         model: this.model,
         messages: input.messages,
         tools: input.withWebSearch ? [{ type: "web_search" }] : undefined,
+        // 联网搜索往返更慢，给足余量。
+        timeoutMs: input.withWebSearch ? 300_000 : 180_000,
       });
     } catch (error) {
       if (error instanceof ArkHttpError) {
