@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { safeInternalPath } from "@/lib/safe-path";
 
 type LoginState =
   | { status: "idle" }
@@ -37,8 +38,7 @@ export function LoginForm() {
         return;
       }
 
-      const next = searchParams.get("next");
-      router.replace(next && next.startsWith("/") ? next : "/");
+      router.replace(safeInternalPath(searchParams.get("next")));
       router.refresh();
     } catch {
       setState({ status: "error", message: "网络错误，请稍后重试" });

@@ -57,5 +57,12 @@ export function readSessionTokenFromCookieHeader(
 export function shouldUseSecureCookies(
   env: Record<string, string | undefined> = process.env,
 ): boolean {
+  const baseUrl = env.APP_BASE_URL?.trim() ?? "";
+  if (baseUrl.startsWith("https://")) {
+    return true;
+  }
+  if (baseUrl.startsWith("http://")) {
+    return false;
+  }
   return env.NODE_ENV === "production";
 }

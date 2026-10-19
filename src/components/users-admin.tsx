@@ -288,6 +288,33 @@ export function UsersAdmin() {
                     </Button>
                   </div>
                 </div>
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-medium text-neutral-600">
+                    调整职责
+                  </legend>
+                  <div className="flex flex-wrap gap-3">
+                    {ROLE_OPTIONS.map((role) => (
+                      <label key={role} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={user.roles.includes(role)}
+                          disabled={busyId === user.id}
+                          onChange={() => {
+                            const next = user.roles.includes(role)
+                              ? user.roles.filter((item) => item !== role)
+                              : [...user.roles, role];
+                            if (next.length === 0) {
+                              setFormError("至少保留一种职责");
+                              return;
+                            }
+                            void patchUser(user.id, { roles: next });
+                          }}
+                        />
+                        {role}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
               </li>
             ))}
           </ul>

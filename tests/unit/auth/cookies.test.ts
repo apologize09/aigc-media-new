@@ -4,6 +4,7 @@ import {
   buildClearSessionCookie,
   buildSessionCookie,
   readSessionTokenFromCookieHeader,
+  shouldUseSecureCookies,
 } from "@/server/auth/cookies";
 import { SESSION_COOKIE_NAME } from "@/server/auth/constants";
 
@@ -40,5 +41,22 @@ describe("会话 Cookie", () => {
 
   it("清除 Cookie 时 Max-Age 为 0", () => {
     expect(buildClearSessionCookie(false)).toContain("Max-Age=0");
+  });
+
+  it("按 APP_BASE_URL 决定 Secure，避免本机 HTTP 生产构建无法登录", () => {
+    expect(
+      shouldUseSecureCookies({
+        NODE_ENV: "production",
+        APP_BASE_URL: "http://127.0.0.1:3000",
+      }),
+    ).toBe(false);
+    expect(
+      shouldUseSecureCookies({
+        NODE_ENV: "production",
+        APP_BASE_URL: "https://proposal.example",
+      }),
+    ).toBe(true);
+    expect(shouldUseSecureCookies({ NODE_ENV: "production" })).toBe(true);
+    expect(shouldUseSecureCookies({ NODE_ENV: "development" })).toBe(false);
   });
 });
