@@ -19,19 +19,74 @@ enum RoleName {
 }
 
 model User {
-  id               String     @id @default(cuid())
-  email            String     @unique
+  id               String          @id @default(cuid())
+  email            String          @unique
   name             String
-  passwordHash     String     @map("password_hash")
-  status           UserStatus @default(active)
-  financeAccess    Boolean    @default(false) @map("finance_access")
-  failedLoginCount Int        @default(0) @map("failed_login_count")
-  createdAt        DateTime   @default(now()) @map("created_at")
-  updatedAt        DateTime   @updatedAt @map("updated_at")
+  passwordHash     String          @map("password_hash")
+  status           UserStatus      @default(active)
+  financeAccess    Boolean         @default(false) @map("finance_access")
+  failedLoginCount Int             @default(0) @map("failed_login_count")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
   roles            UserRole[]
   sessions         Session[]
+  createdClients   Client[]        @relation("ClientCreatedBy")
+  ownedProjects    Project[]       @relation("ProjectOwner")
+  createdProjects  Project[]       @relation("ProjectCreatedBy")
+  projectMembers   ProjectMember[]
 
   @@map("users")
+}
+
+model Client {
+  id            String    @id @default(cuid())
+  name          String
+  contactName   String?   @map("contact_name")
+  contactEmail  String?   @map("contact_email")
+  contactPhone  String?   @map("contact_phone")
+  internalNotes String?   @map("internal_notes")
+  createdById   String    @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  createdBy     User      @relation("ClientCreatedBy", fields: [createdById], references: [id])
+  projects      Project[]
+
+  @@index([createdById])
+  @@map("clients")
+}
+
+model Project {
+  id          String          @id @default(cuid())
+  clientId    String          @map("client_id")
+  title       String
+  brief       String          @default("")
+  ownerUserId String          @map("owner_user_id")
+  archivedAt  DateTime?       @map("archived_at")
+  createdById String          @map("created_by")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  client      Client          @relation(fields: [clientId], references: [id])
+  owner       User            @relation("ProjectOwner", fields: [ownerUserId], references: [id])
+  createdBy   User            @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  members     ProjectMember[]
+
+  @@index([clientId])
+  @@index([ownerUserId])
+  @@index([archivedAt])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
 }
 
 model UserRole {

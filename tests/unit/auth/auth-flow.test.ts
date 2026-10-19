@@ -27,6 +27,9 @@ const env = {
 };
 
 async function resetAuthTables() {
+  await prisma.projectMember.deleteMany();
+  await prisma.project.deleteMany();
+  await prisma.client.deleteMany();
   await prisma.session.deleteMany();
   await prisma.userRole.deleteMany();
   await prisma.user.deleteMany();

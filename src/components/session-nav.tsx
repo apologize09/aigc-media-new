@@ -70,6 +70,8 @@ export function SessionNav() {
   return (
     <nav className="flex items-center gap-4 text-sm">
       <Link href="/">概览</Link>
+      <Link href="/clients">客户</Link>
+      <Link href="/projects">项目</Link>
       {isAdmin ? <Link href="/users">账号</Link> : null}
       <span className="text-neutral-500">{user.name}</span>
       <Button type="button" variant="outline" onClick={() => void onLogout()}>

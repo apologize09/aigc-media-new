@@ -21,6 +21,9 @@ export function toErrorResponse(error: unknown): Response {
   if (error instanceof AuthValidationError) {
     return jsonError(400, error.message);
   }
+  if (error instanceof AuthNotFoundError) {
+    return jsonError(404, error.message);
+  }
   if (error instanceof AuthConflictError) {
     return jsonError(409, error.message);
   }
@@ -28,7 +31,7 @@ export function toErrorResponse(error: unknown): Response {
     return jsonError(503, error.message);
   }
 
-  console.error("auth_unhandled_error");
+  console.error("unhandled_api_error");
   return jsonError(500, "服务器错误");
 }
 
@@ -36,6 +39,13 @@ export class AuthValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AuthValidationError";
+  }
+}
+
+export class AuthNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthNotFoundError";
   }
 }
 
