@@ -13,3 +13,8 @@ next-env.d.ts
 
 npm-debug.log*
 .DS_Store
+
+.data
+# 本地对象存储落盘目录（非源码）
+/storage
+/.data/storage

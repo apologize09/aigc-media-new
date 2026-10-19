@@ -21,14 +21,19 @@
     "db:seed": "tsx scripts/seed-admin.ts"
   },
   "dependencies": {
+    "@grapesjs/react": "^2.0.0",
     "@node-rs/argon2": "^2.0.2",
     "@prisma/client": "6.19.3",
     "@radix-ui/react-slot": "1.2.3",
+    "bullmq": "^6.3.17",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
+    "grapesjs": "^0.22.14",
+    "ioredis": "^6.0.0",
     "next": "16.4.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "sanitize-html": "^2.18.1",
     "tailwind-merge": "3.3.1",
     "zod": "^4.1.12"
   },
@@ -37,6 +42,7 @@
     "@types/node": "^22.19.1",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "@types/sanitize-html": "^2.16.2",
     "eslint": "9.39.1",
     "eslint-config-next": "16.4.2",
     "postcss": "8.5.6",

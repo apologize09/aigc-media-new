@@ -19,6 +19,20 @@ import {
 const hasDatabase = Boolean(process.env.DATABASE_URL?.trim());
 
 async function resetTables() {
+  await prisma.auditLog.deleteMany();
+  await prisma.delivery.deleteMany();
+  await prisma.review.deleteMany();
+  await prisma.workTask.deleteMany();
+  await prisma.quoteLine.deleteMany();
+  await prisma.costLine.deleteMany();
+  await prisma.costSheet.deleteMany();
+  await prisma.proposalDraft.deleteMany();
+  await prisma.proposalSnapshot.deleteMany();
+  await prisma.searchHit.deleteMany();
+  await prisma.searchRun.deleteMany();
+  await prisma.analysis.deleteMany();
+  await prisma.aiJob.deleteMany();
+  await prisma.asset.deleteMany();
   await prisma.projectMember.deleteMany();
   await prisma.project.deleteMany();
   await prisma.client.deleteMany();

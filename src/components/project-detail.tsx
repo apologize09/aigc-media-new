@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ProjectWorkspace } from "@/components/workspace/project-workspace";
 
 type Member = {
   userId: string;
@@ -269,6 +270,11 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
             {saving ? "保存中…" : "保存"}
           </Button>
         </form>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-medium">工作区</h2>
+        <ProjectWorkspace projectId={projectId} />
       </section>
 
       <section className="space-y-3">
